@@ -1,14 +1,5 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 /**
  * This file is part of the FOSElasticaBundle project.
  *
@@ -29,21 +20,35 @@ class PropertyPathTest extends WebTestCase
 {
     public function testContainerSource()
     {
-        static::bootKernel(['test_case' => 'ORM']);
+        $client = $this->createClient(array('test_case' => 'ORM'));
         /** @var \FOS\ElasticaBundle\Persister\ObjectPersister $persister */
-        $persister = static::$kernel->getContainer()->get('fos_elastica.object_persister.index.property_paths_type');
+        $persister = $client->getContainer()->get('fos_elastica.object_persister.index.property_paths_type');
         $obj = new TypeObj();
         $obj->coll = 'Hello';
         $persister->insertOne($obj);
 
-        /** @var \Elastica\Index $index */
-        $index = static::$kernel->getContainer()->get('fos_elastica.index.index');
-        $index->refresh();
+        /** @var \Elastica\Index $elClient */
+        $index = $client->getContainer()->get('fos_elastica.index.index');
+        $index->flush(true);
 
         $query = new Match();
         $query->setField('something', 'Hello');
         $search = $index->createSearch($query);
 
-        $this->assertSame(1, $search->count());
+        $this->assertEquals(1, $search->count());
+    }
+
+    protected function setUp()
+    {
+        parent::setUp();
+
+        $this->deleteTmpDir('Basic');
+    }
+
+    protected function tearDown()
+    {
+        parent::tearDown();
+
+        $this->deleteTmpDir('Basic');
     }
 }

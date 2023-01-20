@@ -10,17 +10,13 @@ doctrine:
         auto_mapping: false
 
 services:
-    test_alias.fos_elastica.indexable:
-        alias: fos_elastica.indexable
-        public: true
     indexable_service:
         class: FOS\ElasticaBundle\Tests\Functional\app\ORM\IndexableService
-        public: false
 
 fos_elastica:
     clients:
         default:
-            url: "http://localhost:9200"
+            url: http://localhost:9200
     indexes:
         fos_elastica_orm_test:
             types:
@@ -37,38 +33,38 @@ fos_elastica:
                     persistence:
                         driver: orm
                         model: FOS\ElasticaBundle\Tests\Functional\TypeObj
-                        listener: ~
+                        listener:
+                            is_indexable_callback: 'object.isIndexable() && !object.isntIndexable()'
                         provider:
                             debug_logging: true
-                    indexable_callback: 'object.isIndexable() && !object.isntIndexable()'
                 type2:
                     properties:
                         field1: ~
                     persistence:
                         driver: orm
                         model: FOS\ElasticaBundle\Tests\Functional\TypeObj
-                        listener: ~
-                    indexable_callback: [ "@indexable_service", 'isIndexable' ]
+                        listener:
+                            is_indexable_callback: [ "@indexable_service", 'isIndexable' ]
                 type3:
-                    properties:
+                    mappings:
                         field1: ~
                     persistence:
                         driver: orm
                         model: FOS\ElasticaBundle\Tests\Functional\TypeObj
                         finder: ~
                         provider: ~
-                        listener: ~
-                    indexable_callback: 'isntIndexable'
+                        listener:
+                            is_indexable_callback: 'isntIndexable'
                 type4:
-                    properties:
+                    mappings:
                         field1: ~
                     persistence:
                         driver: orm
                         model: FOS\ElasticaBundle\Tests\Functional\TypeObj
                         finder: ~
                         provider: ~
-                        listener: ~
-                    indexable_callback: [ 'FOS\ElasticaBundle\Tests\Functional\app\ORM\IndexableService', 'isntIndexable' ]
+                        listener:
+                            is_indexable_callback: [ 'FOS\ElasticaBundle\Tests\Functional\app\ORM\IndexableService', 'isntIndexable' ]
                 property_paths_type:
                     persistence:
                         driver: orm
@@ -92,7 +88,7 @@ fos_elastica:
                         finder: ~
                         provider: ~
         second_index:
-            index_name: "foselastica_orm_test_second_%kernel.environment%"
+            index_name: foselastica_orm_test_second_%kernel.environment%
             types:
                 type:
                     properties:
@@ -101,5 +97,5 @@ fos_elastica:
                     persistence:
                         driver: orm
                         model: FOS\ElasticaBundle\Tests\Functional\TypeObj
-                        listener: ~
-                    indexable_callback: 'object.isIndexable() && !object.isntIndexable()'
+                        listener:
+                            is_indexable_callback: 'object.isIndexable() && !object.isntIndexable()'

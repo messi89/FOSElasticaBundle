@@ -1,9 +1,9 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
+/**
+ * This file is part of the FOSElasticaBundle project.
  *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
+ * (c) Infinite Networks Pty Ltd <http://www.infinite.net.au>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -17,11 +17,6 @@ class TypeObj
     public $coll;
     public $field1;
     public $field2;
-
-    public function __construct()
-    {
-        $this->coll = new \ArrayIterator();
-    }
 
     public function isIndexable()
     {

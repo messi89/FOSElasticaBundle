@@ -1,14 +1,5 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 /**
  * This file is part of the FOSElasticaBundle project.
  *
@@ -28,20 +19,34 @@ class IndexableCallbackTest extends WebTestCase
     /**
      * 2 reasons for this test:.
      *
-     * 1) To test that the configuration rename from indexable_callback under the listener
+     * 1) To test that the configuration rename from is_indexable_callback under the listener
      * key is respected, and
      * 2) To test the Extension's set up of the Indexable service.
      */
     public function testIndexableCallback()
     {
-        static::bootKernel(['test_case' => 'ORM']);
+        $client = $this->createClient(array('test_case' => 'ORM'));
 
         /** @var \FOS\ElasticaBundle\Provider\Indexable $in */
-        $in = static::$kernel->getContainer()->get('test_alias.fos_elastica.indexable');
+        $in = $client->getContainer()->get('fos_elastica.indexable');
 
         $this->assertTrue($in->isObjectIndexable('index', 'type', new TypeObj()));
         $this->assertTrue($in->isObjectIndexable('index', 'type2', new TypeObj()));
         $this->assertFalse($in->isObjectIndexable('index', 'type3', new TypeObj()));
         $this->assertFalse($in->isObjectIndexable('index', 'type4', new TypeObj()));
+    }
+
+    protected function setUp()
+    {
+        parent::setUp();
+
+        $this->deleteTmpDir('ORM');
+    }
+
+    protected function tearDown()
+    {
+        parent::tearDown();
+
+        $this->deleteTmpDir('ORM');
     }
 }

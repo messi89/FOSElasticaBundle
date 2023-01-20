@@ -44,10 +44,5 @@
     },
     "autoload": {
         "psr-4": { "FOS\\ElasticaBundle\\": "" }
-    },
-    "extra": {
-        "branch-alias": {
-            "dev-master": "4.2.x-dev"
-        }
     }
 }

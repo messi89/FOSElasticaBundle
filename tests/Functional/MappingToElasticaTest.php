@@ -1,14 +1,5 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 /**
  * This file is part of the FOSElasticaBundle project.
  *
@@ -20,6 +11,8 @@
 
 namespace FOS\ElasticaBundle\Tests\Functional;
 
+use Symfony\Bundle\FrameworkBundle\Client;
+
 /**
  * @group functional
  */
@@ -27,46 +20,46 @@ class MappingToElasticaTest extends WebTestCase
 {
     public function testResetIndexAddsMappings()
     {
-        static::bootKernel(['test_case' => 'Basic']);
-        $resetter = $this->getResetter();
+        $client = $this->createClient(array('test_case' => 'Basic'));
+        $resetter = $this->getResetter($client);
         $resetter->resetIndex('index');
 
-        $type = $this->getType();
+        $type = $this->getType($client);
         $mapping = $type->getMapping();
 
         $this->assertNotEmpty($mapping, 'Mapping was populated');
 
-        $type = $this->getType();
+        $type = $this->getType($client, 'type');
         $mapping = $type->getMapping();
-        $this->assertSame('parent', $mapping['type']['_parent']['type']);
+        $this->assertEquals('parent', $mapping['type']['_parent']['type']);
 
-        $this->assertSame('strict', $mapping['type']['dynamic']);
+        $this->assertEquals('strict', $mapping['type']['dynamic']);
         $this->assertArrayHasKey('dynamic', $mapping['type']['properties']['dynamic_allowed']);
-        $this->assertSame('true', $mapping['type']['properties']['dynamic_allowed']['dynamic']);
+        $this->assertEquals('true', $mapping['type']['properties']['dynamic_allowed']['dynamic']);
     }
 
     public function testResetType()
     {
-        static::bootKernel(['test_case' => 'Basic']);
-        $resetter = $this->getResetter();
+        $client = $this->createClient(array('test_case' => 'Basic'));
+        $resetter = $this->getResetter($client);
         $resetter->resetIndexType('index', 'type');
 
-        $type = $this->getType();
+        $type = $this->getType($client);
         $mapping = $type->getMapping();
 
         $this->assertNotEmpty($mapping, 'Mapping was populated');
         $this->assertFalse($mapping['type']['date_detection']);
         $this->assertTrue($mapping['type']['numeric_detection']);
-        $this->assertSame(['yyyy-MM-dd'], $mapping['type']['dynamic_date_formats']);
+        $this->assertEquals(array('yyyy-MM-dd'), $mapping['type']['dynamic_date_formats']);
     }
 
     public function testORMResetIndexAddsMappings()
     {
-        static::bootKernel(['test_case' => 'ORM']);
-        $resetter = $this->getResetter();
+        $client = $this->createClient(array('test_case' => 'ORM'));
+        $resetter = $this->getResetter($client);
         $resetter->resetIndex('index');
 
-        $type = $this->getType();
+        $type = $this->getType($client);
         $mapping = $type->getMapping();
 
         $this->assertNotEmpty($mapping, 'Mapping was populated');
@@ -74,11 +67,11 @@ class MappingToElasticaTest extends WebTestCase
 
     public function testORMResetType()
     {
-        static::bootKernel(['test_case' => 'ORM']);
-        $resetter = $this->getResetter();
+        $client = $this->createClient(array('test_case' => 'ORM'));
+        $resetter = $this->getResetter($client);
         $resetter->resetIndexType('index', 'type');
 
-        $type = $this->getType();
+        $type = $this->getType($client);
         $mapping = $type->getMapping();
 
         $this->assertNotEmpty($mapping, 'Mapping was populated');
@@ -86,35 +79,54 @@ class MappingToElasticaTest extends WebTestCase
 
     public function testMappingIteratorToArrayField()
     {
-        static::bootKernel(['test_case' => 'ORM']);
-        $persister = static::$kernel->getContainer()->get('fos_elastica.object_persister.index.type');
+        $client = $this->createClient(array('test_case' => 'ORM'));
+        $persister = $client->getContainer()->get('fos_elastica.object_persister.index.type');
 
         $object = new TypeObj();
         $object->id = 1;
-        $object->coll = new \ArrayIterator(['foo', 'bar']);
+        $object->coll = new \ArrayIterator(array('foo', 'bar'));
         $persister->insertOne($object);
 
-        $object->coll = new \ArrayIterator(['foo', 'bar', 'bazz']);
+        $object->coll = new \ArrayIterator(array('foo', 'bar', 'bazz'));
         $object->coll->offsetUnset(1);
 
         $persister->replaceOne($object);
     }
 
     /**
+     * @param Client $client
+     *
      * @return \FOS\ElasticaBundle\Index\Resetter $resetter
      */
-    private function getResetter()
+    private function getResetter(Client $client)
     {
-        return static::$kernel->getContainer()->get('fos_elastica.resetter');
+        return $client->getContainer()->get('fos_elastica.resetter');
     }
 
     /**
+     * @param Client $client
      * @param string $type
      *
      * @return \Elastica\Type
      */
-    private function getType($type = 'type')
+    private function getType(Client $client, $type = 'type')
     {
-        return static::$kernel->getContainer()->get('fos_elastica.index.index.'.$type);
+        return $client->getContainer()->get('fos_elastica.index.index.'.$type);
+    }
+
+    protected function setUp()
+    {
+        parent::setUp();
+
+        $this->deleteTmpDir('Basic');
+        $this->deleteTmpDir('ORM');
+    }
+
+    protected function tearDown()
+    {
+        parent::tearDown();
+
+        $this->deleteTmpDir('Basic');
+        $this->deleteTmpDir('ORM');
     }
 }

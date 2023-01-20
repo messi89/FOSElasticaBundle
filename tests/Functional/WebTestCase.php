@@ -1,14 +1,5 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 /**
  * This file is part of the FOSElasticaBundle project.
  *
@@ -20,42 +11,18 @@
 
 namespace FOS\ElasticaBundle\Tests\Functional;
 
-use FOS\ElasticaBundle\Tests\Functional\app\AppKernel;
-use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase as BaseKernelTestCase;
-use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Bundle\FrameworkBundle\Tests\Functional\WebTestCase as BaseWebTestCase;
 
-/*
- * Based on https://github.com/symfony/symfony/blob/2.7/src/Symfony/Bundle/FrameworkBundle/Tests/Functional/WebTestCase.php
- */
-class WebTestCase extends BaseKernelTestCase
+class WebTestCase extends BaseWebTestCase
 {
     protected static function getKernelClass()
     {
         require_once __DIR__.'/app/AppKernel.php';
 
-        return AppKernel::class;
+        return 'FOS\ElasticaBundle\Tests\Functional\app\AppKernel';
     }
 
-    public static function setUpBeforeClass()
-    {
-        static::deleteTmpDir();
-    }
-
-    public static function tearDownAfterClass()
-    {
-        static::deleteTmpDir();
-    }
-
-    protected static function deleteTmpDir()
-    {
-        if (!file_exists($dir = sys_get_temp_dir().'/'.static::getVarDir())) {
-            return;
-        }
-        $fs = new Filesystem();
-        $fs->remove($dir);
-    }
-
-    protected static function createKernel(array $options = [])
+    protected static function createKernel(array $options = array())
     {
         $class = self::getKernelClass();
 
@@ -64,16 +31,10 @@ class WebTestCase extends BaseKernelTestCase
         }
 
         return new $class(
-            static::getVarDir(),
             $options['test_case'],
             isset($options['root_config']) ? $options['root_config'] : 'config.yml',
-            isset($options['environment']) ? $options['environment'] : strtolower(static::getVarDir().$options['test_case']),
+            isset($options['environment']) ? $options['environment'] : 'foselasticabundle'.strtolower($options['test_case']),
             isset($options['debug']) ? $options['debug'] : true
         );
-    }
-
-    protected static function getVarDir()
-    {
-        return substr(strrchr(get_called_class(), '\\'), 1);
     }
 }

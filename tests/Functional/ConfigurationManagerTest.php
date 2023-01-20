@@ -1,14 +1,5 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 /**
  * This file is part of the FOSElasticaBundle project.
  *
@@ -20,7 +11,7 @@
 
 namespace FOS\ElasticaBundle\Tests\Functional;
 
-use FOS\ElasticaBundle\Configuration\TypeConfig;
+use Symfony\Bundle\FrameworkBundle\Client;
 
 /**
  * @group functional
@@ -29,23 +20,39 @@ class ConfigurationManagerTest extends WebTestCase
 {
     public function testContainerSource()
     {
-        static::bootKernel(['test_case' => 'Basic']);
-        $manager = $this->getManager();
+        $client = $this->createClient(array('test_case' => 'Basic'));
+        $manager = $this->getManager($client);
 
         $index = $manager->getIndexConfiguration('index');
 
-        $this->assertSame('index', $index->getName());
+        $this->assertEquals('index', $index->getName());
         $this->assertGreaterThanOrEqual(2, count($index->getTypes()));
-        $this->assertInstanceOf(TypeConfig::class, $index->getType('type'));
-        $this->assertInstanceOf(TypeConfig::class, $index->getType('parent'));
+        $this->assertInstanceOf('FOS\\ElasticaBundle\\Configuration\\TypeConfig', $index->getType('type'));
+        $this->assertInstanceOf('FOS\\ElasticaBundle\\Configuration\\TypeConfig', $index->getType('parent'));
+    }
+
+    protected function setUp()
+    {
+        parent::setUp();
+
+        $this->deleteTmpDir('Basic');
+    }
+
+    protected function tearDown()
+    {
+        parent::tearDown();
+
+        $this->deleteTmpDir('Basic');
     }
 
     /**
+     * @param Client $client
+     *
      * @return \FOS\ElasticaBundle\Configuration\ConfigManager
      */
-    private function getManager()
+    private function getManager(Client $client)
     {
-        $manager = static::$kernel->getContainer()->get('fos_elastica.config_manager');
+        $manager = $client->getContainer()->get('fos_elastica.config_manager');
 
         return $manager;
     }
