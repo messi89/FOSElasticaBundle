@@ -1,14 +1,5 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace FOS\ElasticaBundle\Paginator;
 
 use Pagerfanta\Adapter\AdapterInterface;
@@ -28,7 +19,7 @@ class FantaPaginatorAdapter implements AdapterInterface
     /**
      * Returns the number of results.
      *
-     * @return int The number of results
+     * @return integer The number of results.
      */
     public function getNbResults()
     {
@@ -62,21 +53,13 @@ class FantaPaginatorAdapter implements AdapterInterface
     /**
      * Returns a slice of the results.
      *
-     * @param int $offset The offset
-     * @param int $length The length
+     * @param integer $offset The offset.
+     * @param integer $length The length.
      *
-     * @return array|\Traversable The slice
+     * @return array|\Traversable The slice.
      */
     public function getSlice($offset, $length)
     {
         return $this->adapter->getResults($offset, $length)->toArray();
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getMaxScore()
-    {
-        return $this->adapter->getMaxScore();
     }
 }

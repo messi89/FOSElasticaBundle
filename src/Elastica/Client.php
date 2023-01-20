@@ -1,18 +1,8 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace FOS\ElasticaBundle\Elastica;
 
 use Elastica\Client as BaseClient;
-use Elastica\Exception\ClientException;
 use Elastica\Request;
 use FOS\ElasticaBundle\Logger\ElasticaLogger;
 use Symfony\Component\Stopwatch\Stopwatch;
@@ -30,14 +20,7 @@ class Client extends BaseClient
      *
      * @var array
      */
-    private $indexCache = [];
-
-    /**
-     * Stores created index template to avoid recreation.
-     *
-     * @var array
-     */
-    private $indexTemplateCache = array();
+    private $indexCache = array();
 
     /**
      * Symfony's debugging Stopwatch.
@@ -47,26 +30,21 @@ class Client extends BaseClient
     private $stopwatch;
 
     /**
-     * {@inheritdoc}
+     * @param string $path
+     * @param string $method
+     * @param array  $data
+     * @param array  $query
+     *
+     * @return \Elastica\Response
      */
-    public function request($path, $method = Request::GET, $data = [], array $query = [], $contentType = Request::DEFAULT_CONTENT_TYPE)
+    public function request($path, $method = Request::GET, $data = array(), array $query = array())
     {
         if ($this->stopwatch) {
             $this->stopwatch->start('es_request', 'fos_elastica');
         }
 
-        $response = parent::request($path, $method, $data, $query, $contentType);
+        $response = parent::request($path, $method, $data, $query);
         $responseData = $response->getData();
-
-        $transportInfo = $response->getTransferInfo();
-        $connection = $this->getLastRequest()->getConnection();
-        $forbiddenHttpCodes = $connection->hasConfig('http_error_codes') ? $connection->getConfig('http_error_codes') : [];
-
-        if (isset($transportInfo['http_code']) && in_array($transportInfo['http_code'], $forbiddenHttpCodes, true)) {
-            $body = is_array($responseData) ? json_encode($responseData) : $responseData;
-            $message = sprintf('Error in transportInfo: response code is %s, response body is %s', $transportInfo['http_code'], $body);
-            throw new ClientException($message);
-        }
 
         if (isset($responseData['took']) && isset($responseData['hits'])) {
             $this->logQuery($path, $method, $data, $query, $response->getQueryTime(), $response->getEngineTime(), $responseData['hits']['total']);
@@ -95,15 +73,6 @@ class Client extends BaseClient
         return $this->indexCache[$name] = new Index($this, $name);
     }
 
-    public function getIndexTemplate($name)
-    {
-        if (isset($this->indexTemplateCache[$name])) {
-            return $this->indexTemplateCache[$name];
-        }
-
-        return $this->indexTemplateCache[$name] = new IndexTemplate($this, $name);
-    }
-
     /**
      * Sets a stopwatch instance for debugging purposes.
      *
@@ -119,7 +88,7 @@ class Client extends BaseClient
      *
      * @param string $path
      * @param string $method
-     * @param array|string $data
+     * @param array  $data
      * @param array  $query
      * @param int    $queryTime
      * @param int    $engineMS
@@ -131,14 +100,15 @@ class Client extends BaseClient
             return;
         }
 
+
         $connection = $this->getLastRequest()->getConnection();
 
-        $connectionArray = [
+        $connectionArray = array(
             'host' => $connection->getHost(),
             'port' => $connection->getPort(),
             'transport' => $connection->getTransport(),
-            'headers' => $connection->hasConfig('headers') ? $connection->getConfig('headers') : [],
-        ];
+            'headers' => $connection->hasConfig('headers') ? $connection->getConfig('headers') : array(),
+        );
 
         /** @var ElasticaLogger $logger */
         $logger = $this->_logger;

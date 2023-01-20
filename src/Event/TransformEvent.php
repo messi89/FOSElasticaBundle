@@ -1,9 +1,9 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
+/**
+ * This file is part of the FOSElasticaBundle project.
  *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
+ * (c) Infinite Networks Pty Ltd <http://www.infinite.net.au>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -11,150 +11,76 @@
 
 namespace FOS\ElasticaBundle\Event;
 
-use Elastica\Document;
-use Symfony\Component\EventDispatcher\Event as LegacyEvent;
-use Symfony\Contracts\EventDispatcher\Event;
+use Symfony\Component\EventDispatcher\Event;
 
-if (!class_exists(Event::class)) {
+class TransformEvent extends Event
+{
     /**
-     * Symfony 3.4
+     * @Event("FOS\ElasticaBundle\Event\TransformEvent")
      */
-    class TransformEvent extends LegacyEvent
+    const PRE_TRANSFORM = 'fos_elastica.pre_transform';
+
+    /**
+     * @Event("FOS\ElasticaBundle\Event\TransformEvent")
+     */
+    const POST_TRANSFORM = 'fos_elastica.post_transform';
+
+    /**
+     * @var mixed
+     */
+    private $document;
+
+    /**
+     * @var array
+     */
+    private $fields;
+
+    /**
+     * @var mixed
+     */
+    private $object;
+
+    /**
+     * @param mixed $document
+     * @param array $fields
+     * @param mixed $object
+     */
+    public function __construct($document, array $fields, $object)
     {
-        /**
-         * @LegacyEvent("FOS\ElasticaBundle\Event\TransformEvent")
-         */
-        const PRE_TRANSFORM = 'fos_elastica.pre_transform';
-        /**
-         * @LegacyEvent("FOS\ElasticaBundle\Event\TransformEvent")
-         */
-        const POST_TRANSFORM = 'fos_elastica.post_transform';
-        /**
-         * @var Document
-         */
-        private $document;
-        /**
-         * @var array
-         */
-        private $fields;
-        /**
-         * @var object
-         */
-        private $object;
-
-        /**
-         * @param mixed  $document
-         * @param array  $fields
-         * @param object $object
-         */
-        public function __construct($document, array $fields, $object)
-        {
-            $this->document = $document;
-            $this->fields = $fields;
-            $this->object = $object;
-        }
-
-        /**
-         * @return Document
-         */
-        public function getDocument()
-        {
-            return $this->document;
-        }
-
-        /**
-         * @return array
-         */
-        public function getFields()
-        {
-            return $this->fields;
-        }
-
-        /**
-         * @return object
-         */
-        public function getObject()
-        {
-            return $this->object;
-        }
-
-        /**
-         * @param Document $document
-         */
-        public function setDocument($document)
-        {
-            $this->document = $document;
-        }
+        $this->document = $document;
+        $this->fields = $fields;
+        $this->object = $object;
     }
-} else {
+
     /**
-     * Symfony >= 4.3
+     * @return mixed
      */
-    class TransformEvent extends Event
+    public function getDocument()
     {
-        /**
-         * @Event("FOS\ElasticaBundle\Event\TransformEvent")
-         */
-        const PRE_TRANSFORM = 'fos_elastica.pre_transform';
-        /**
-         * @Event("FOS\ElasticaBundle\Event\TransformEvent")
-         */
-        const POST_TRANSFORM = 'fos_elastica.post_transform';
-        /**
-         * @var Document
-         */
-        private $document;
-        /**
-         * @var array
-         */
-        private $fields;
-        /**
-         * @var object
-         */
-        private $object;
+        return $this->document;
+    }
 
-        /**
-         * @param mixed  $document
-         * @param array  $fields
-         * @param object $object
-         */
-        public function __construct($document, array $fields, $object)
-        {
-            $this->document = $document;
-            $this->fields = $fields;
-            $this->object = $object;
-        }
+    /**
+     * @return array
+     */
+    public function getFields()
+    {
+        return $this->fields;
+    }
 
-        /**
-         * @return Document
-         */
-        public function getDocument()
-        {
-            return $this->document;
-        }
+    /**
+     * @return mixed
+     */
+    public function getObject()
+    {
+        return $this->object;
+    }
 
-        /**
-         * @return array
-         */
-        public function getFields()
-        {
-            return $this->fields;
-        }
-
-        /**
-         * @return object
-         */
-        public function getObject()
-        {
-            return $this->object;
-        }
-
-        /**
-         * @param Document $document
-         */
-        public function setDocument($document)
-        {
-            $this->document = $document;
-        }
+    /**
+     * @param mixed $document
+     */
+    public function setDocument($document)
+    {
+        $this->document = $document;
     }
 }

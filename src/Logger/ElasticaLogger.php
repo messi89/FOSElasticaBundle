@@ -1,14 +1,5 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace FOS\ElasticaBundle\Logger;
 
 use Psr\Log\AbstractLogger;
@@ -32,10 +23,10 @@ class ElasticaLogger extends AbstractLogger
     /**
      * @var array
      */
-    protected $queries = [];
+    protected $queries = array();
 
     /**
-     * @var bool
+     * @var boolean
      */
     protected $debug;
 
@@ -43,7 +34,7 @@ class ElasticaLogger extends AbstractLogger
      * Constructor.
      *
      * @param LoggerInterface|null $logger The Symfony logger
-     * @param bool                 $debug
+     * @param boolean              $debug
      */
     public function __construct(LoggerInterface $logger = null, $debug = false)
     {
@@ -54,34 +45,22 @@ class ElasticaLogger extends AbstractLogger
     /**
      * Logs a query.
      *
-     * @param string $path       Path to call
-     * @param string $method     Rest method to use (GET, POST, DELETE, PUT)
-     * @param array|string $data Arguments
-     * @param float  $queryTime  Execution time (in seconds)
+     * @param string $path Path to call
+     * @param string $method Rest method to use (GET, POST, DELETE, PUT)
+     * @param array  $data Arguments
+     * @param float  $queryTime Execution time (in seconds)
      * @param array  $connection Host, port, transport, and headers of the query
-     * @param array  $query      Arguments
+     * @param array  $query Arguments
      * @param int    $engineTime
      * @param int    $itemCount
      */
-    public function logQuery($path, $method, $data, $queryTime, $connection = [], $query = [], $engineTime = 0, $itemCount = 0)
+    public function logQuery($path, $method, $data, $queryTime, $connection = array(), $query = array(), $engineTime = 0, $itemCount = 0)
     {
         $executionMS = $queryTime * 1000;
 
         if ($this->debug) {
             $e = new \Exception();
-            if (is_string($data)) {
-                $jsonStrings = explode("\n", $data);
-                $data = [];
-                foreach ($jsonStrings as $json) {
-                    if ($json != '') {
-                        $data[] = json_decode($json, true);
-                    }
-                }
-            } else {
-                $data = [$data];
-            }
-
-            $this->queries[] = [
+            $this->queries[] = array(
                 'path' => $path,
                 'method' => $method,
                 'data' => $data,
@@ -90,12 +69,12 @@ class ElasticaLogger extends AbstractLogger
                 'connection' => $connection,
                 'queryString' => $query,
                 'itemCount' => $itemCount,
-                'backtrace' => $e->getTraceAsString(),
-            ];
+                'backtrace' => $e->getTraceAsString()
+            );
         }
 
         if (null !== $this->logger) {
-            $message = sprintf('%s (%s) %0.2f ms', $path, $method, $executionMS);
+            $message = sprintf("%s (%s) %0.2f ms", $path, $method, $executionMS);
             $this->logger->info($message, (array) $data);
         }
     }
@@ -103,7 +82,7 @@ class ElasticaLogger extends AbstractLogger
     /**
      * Returns the number of queries that have been logged.
      *
-     * @return int The number of queries logged
+     * @return integer The number of queries logged
      */
     public function getNbQueries()
     {
@@ -123,13 +102,8 @@ class ElasticaLogger extends AbstractLogger
     /**
      * {@inheritdoc}
      */
-    public function log($level, $message, array $context = [])
+    public function log($level, $message, array $context = array())
     {
         return $this->logger->log($level, $message, $context);
-    }
-
-    public function reset()
-    {
-        $this->queries = [];
     }
 }

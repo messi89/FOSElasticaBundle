@@ -1,41 +1,23 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace FOS\ElasticaBundle\Command;
 
+use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
+use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 use Elastica\Query;
 use Elastica\Result;
-use FOS\ElasticaBundle\Index\IndexManager;
-use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\InputArgument;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Searches a type.
  */
-class SearchCommand extends Command
+class SearchCommand extends ContainerAwareCommand
 {
-    protected static $defaultName = 'fos:elastica:search';
-
-    private $indexManager;
-
-    public function __construct(IndexManager $indexManager)
-    {
-        parent::__construct();
-
-        $this->indexManager = $indexManager;
-    }
-
+    /**
+     * @see Command
+     */
     protected function configure()
     {
         $this
@@ -52,11 +34,15 @@ class SearchCommand extends Command
         ;
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output): int
+    /**
+     * {@inheritdoc}
+     */
+    protected function execute(InputInterface $input, OutputInterface $output)
     {
         $indexName = $input->getOption('index');
-        $index = $this->indexManager->getIndex($indexName ? $indexName : null);
-        $type = $index->getType($input->getArgument('type'));
+        /** @var $index \Elastica\Index */
+        $index = $this->getContainer()->get('fos_elastica.index_manager')->getIndex($indexName ? $indexName : null);
+        $type  = $index->getType($input->getArgument('type'));
         $query = Query::create($input->getArgument('query'));
         $query->setSize($input->getOption('limit'));
         if ($input->getOption('explain')) {
@@ -69,8 +55,6 @@ class SearchCommand extends Command
         foreach ($resultSet->getResults() as $result) {
             $output->writeLn($this->formatResult($result, $input->getOption('show-field'), $input->getOption('show-source'), $input->getOption('show-id'), $input->getOption('explain')));
         }
-
-        return 0;
     }
 
     /**

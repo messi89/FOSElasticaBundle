@@ -1,17 +1,8 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace FOS\ElasticaBundle\Doctrine;
 
-use Doctrine\Persistence\Event\LifecycleEventArgs;
+use Doctrine\Common\Persistence\Event\LifecycleEventArgs;
 use FOS\ElasticaBundle\Persister\ObjectPersister;
 use FOS\ElasticaBundle\Persister\ObjectPersisterInterface;
 use FOS\ElasticaBundle\Provider\IndexableInterface;
@@ -26,26 +17,6 @@ use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 class Listener
 {
     /**
-     * Objects scheduled for insertion.
-     *
-     * @var array
-     */
-    public $scheduledForInsertion = [];
-
-    /**
-     * Objects scheduled to be updated or removed.
-     *
-     * @var array
-     */
-    public $scheduledForUpdate = [];
-
-    /**
-     * IDs of objects scheduled for removal.
-     *
-     * @var array
-     */
-    public $scheduledForDeletion = [];
-    /**
      * Object persister.
      *
      * @var ObjectPersisterInterface
@@ -53,18 +24,39 @@ class Listener
     protected $objectPersister;
 
     /**
-     * PropertyAccessor instance.
-     *
-     * @var PropertyAccessorInterface
-     */
-    protected $propertyAccessor;
-
-    /**
      * Configuration for the listener.
      *
      * @var array
      */
     private $config;
+
+    /**
+     * Objects scheduled for insertion.
+     *
+     * @var array
+     */
+    public $scheduledForInsertion = array();
+
+    /**
+     * Objects scheduled to be updated or removed.
+     *
+     * @var array
+     */
+    public $scheduledForUpdate = array();
+
+    /**
+     * IDs of objects scheduled for removal.
+     *
+     * @var array
+     */
+    public $scheduledForDeletion = array();
+
+    /**
+     * PropertyAccessor instance.
+     *
+     * @var PropertyAccessorInterface
+     */
+    protected $propertyAccessor;
 
     /**
      * @var IndexableInterface
@@ -82,31 +74,18 @@ class Listener
     public function __construct(
         ObjectPersisterInterface $objectPersister,
         IndexableInterface $indexable,
-        array $config = [],
+        array $config = array(),
         LoggerInterface $logger = null
     ) {
-        $this->config = array_merge([
+        $this->config = array_merge(array(
             'identifier' => 'id',
-            'defer' => false,
-        ], $config);
+        ), $config);
         $this->indexable = $indexable;
         $this->objectPersister = $objectPersister;
         $this->propertyAccessor = PropertyAccess::createPropertyAccessor();
 
         if ($logger && $this->objectPersister instanceof ObjectPersister) {
             $this->objectPersister->setLogger($logger);
-        }
-    }
-
-    /**
-     * Handler for the "kernel.terminate" and "console.terminate" Symfony events.
-     * These event are subscribed to if the listener is configured to persist asynchronously.
-     */
-    public function onTerminate()
-    {
-        if ($this->config['defer']) {
-            $this->config['defer'] = false;
-            $this->persistScheduled();
         }
     }
 
@@ -159,6 +138,26 @@ class Listener
     }
 
     /**
+     * Persist scheduled objects to ElasticSearch
+     * After persisting, clear the scheduled queue to prevent multiple data updates when using multiple flush calls.
+     */
+    private function persistScheduled()
+    {
+        if (count($this->scheduledForInsertion)) {
+            $this->objectPersister->insertMany($this->scheduledForInsertion);
+            $this->scheduledForInsertion = array();
+        }
+        if (count($this->scheduledForUpdate)) {
+            $this->objectPersister->replaceMany($this->scheduledForUpdate);
+            $this->scheduledForUpdate = array();
+        }
+        if (count($this->scheduledForDeletion)) {
+            $this->objectPersister->deleteManyByIdentifiers($this->scheduledForDeletion);
+            $this->scheduledForDeletion = array();
+        }
+    }
+
+    /**
      * Iterate through scheduled actions before flushing to emulate 2.x behavior.
      * Note that the ElasticSearch index will fall out of sync with the source
      * data in the event of a crash during flush.
@@ -167,7 +166,7 @@ class Listener
      *
      * @deprecated This method should only be called in applications that depend
      *             on the behaviour that entities are indexed regardless of if a
-     *             flush is successful
+     *             flush is successful.
      */
     public function preFlush()
     {
@@ -181,38 +180,6 @@ class Listener
     public function postFlush()
     {
         $this->persistScheduled();
-    }
-
-    /**
-     * Determines whether or not it is okay to persist now.
-     *
-     * @return bool
-     */
-    private function shouldPersist()
-    {
-        return !$this->config['defer'];
-    }
-
-    /**
-     * Persist scheduled objects to ElasticSearch
-     * After persisting, clear the scheduled queue to prevent multiple data updates when using multiple flush calls.
-     */
-    private function persistScheduled()
-    {
-        if ($this->shouldPersist()) {
-            if (count($this->scheduledForInsertion)) {
-                $this->objectPersister->insertMany($this->scheduledForInsertion);
-                $this->scheduledForInsertion = [];
-            }
-            if (count($this->scheduledForUpdate)) {
-                $this->objectPersister->replaceMany($this->scheduledForUpdate);
-                $this->scheduledForUpdate = [];
-            }
-            if (count($this->scheduledForDeletion)) {
-                $this->objectPersister->deleteManyByIdentifiers($this->scheduledForDeletion);
-                $this->scheduledForDeletion = [];
-            }
-        }
     }
 
     /**
@@ -243,5 +210,3 @@ class Listener
         );
     }
 }
-
-class_exists(LifecycleEventArgs::class);

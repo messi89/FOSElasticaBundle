@@ -1,9 +1,9 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
+/**
+ * This file is part of the FOSElasticaBundle project.
  *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
+ * (c) Tim Nagel <tim@nagel.com.au>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -18,7 +18,7 @@ use Symfony\Component\DependencyInjection\Reference;
 class IndexPass implements CompilerPassInterface
 {
     /**
-     * {@inheritdoc}
+     * {@inheritDoc}
      */
     public function process(ContainerBuilder $container)
     {
@@ -26,7 +26,7 @@ class IndexPass implements CompilerPassInterface
             return;
         }
 
-        $indexes = [];
+        $indexes = array();
         foreach ($container->findTaggedServiceIds('fos_elastica.index') as $id => $tags) {
             foreach ($tags as $tag) {
                 $indexes[$tag['name']] = new Reference($id);

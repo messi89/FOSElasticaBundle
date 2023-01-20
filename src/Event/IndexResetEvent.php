@@ -1,9 +1,9 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
+/**
+ * This file is part of the FOSElasticaBundle project.
  *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
+ * (c) Infinite Networks Pty Ltd <http://www.infinite.net.au>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -11,142 +11,67 @@
 
 namespace FOS\ElasticaBundle\Event;
 
-use Symfony\Component\EventDispatcher\Event as LegacyEvent;
-use Symfony\Contracts\EventDispatcher\Event;
-
-if (!class_exists(Event::class)) {
+/**
+ * Index ResetEvent.
+ *
+ * @author Oleg Andreyev <oleg.andreyev@intexsys.lv>
+ */
+class IndexResetEvent extends IndexEvent
+{
     /**
-     * Symfony 3.4
+     * @Event("FOS\ElasticaBundle\Event\IndexResetEvent")
      */
+    const PRE_INDEX_RESET = 'elastica.index.pre_reset';
 
     /**
-     * Index ResetEvent.
-     *
-     * @author Oleg Andreyev <oleg.andreyev@intexsys.lv>
+     * @Event("FOS\ElasticaBundle\Event\IndexResetEvent")
      */
-    class IndexResetEvent extends IndexEvent
+    const POST_INDEX_RESET = 'elastica.index.post_reset';
+
+    /**
+     * @var bool
+     */
+    private $force;
+
+    /**
+     * @var bool
+     */
+    private $populating;
+
+    /**
+     * @param string $index
+     * @param bool   $populating
+     * @param bool   $force
+     */
+    public function __construct($index, $populating, $force)
     {
-        /**
-         * @LegacyEvent("FOS\ElasticaBundle\Event\IndexResetEvent")
-         */
-        const PRE_INDEX_RESET = 'elastica.index.pre_reset';
-        /**
-         * @LegacyEvent("FOS\ElasticaBundle\Event\IndexResetEvent")
-         */
-        const POST_INDEX_RESET = 'elastica.index.post_reset';
-        /**
-         * @var bool
-         */
-        private $force;
-        /**
-         * @var bool
-         */
-        private $populating;
+        parent::__construct($index);
 
-        /**
-         * @param string $index
-         * @param bool   $populating
-         * @param bool   $force
-         */
-        public function __construct($index, $populating, $force)
-        {
-            parent::__construct($index);
-
-            $this->force = $force;
-            $this->populating = $populating;
-        }
-
-        /**
-         * @return bool
-         */
-        public function isForce()
-        {
-            return $this->force;
-        }
-
-        /**
-         * @return bool
-         */
-        public function isPopulating()
-        {
-            return $this->populating;
-        }
-
-        /**
-         * @param bool $force
-         */
-        public function setForce($force)
-        {
-            $this->force = $force;
-        }
+        $this->force = $force;
+        $this->populating = $populating;
     }
-} else {
-    /**
-     * Symfony >= 4.3
-     */
 
     /**
-     * Index ResetEvent.
-     *
-     * @author Oleg Andreyev <oleg.andreyev@intexsys.lv>
+     * @return boolean
      */
-    class IndexResetEvent extends IndexEvent
+    public function isForce()
     {
-        /**
-         * @Event("FOS\ElasticaBundle\Event\IndexResetEvent")
-         */
-        const PRE_INDEX_RESET = 'elastica.index.pre_reset';
+        return $this->force;
+    }
 
-        /**
-         * @Event("FOS\ElasticaBundle\Event\IndexResetEvent")
-         */
-        const POST_INDEX_RESET = 'elastica.index.post_reset';
+    /**
+     * @return boolean
+     */
+    public function isPopulating()
+    {
+        return $this->populating;
+    }
 
-        /**
-         * @var bool
-         */
-        private $force;
-
-        /**
-         * @var bool
-         */
-        private $populating;
-
-        /**
-         * @param string $index
-         * @param bool   $populating
-         * @param bool   $force
-         */
-        public function __construct($index, $populating, $force)
-        {
-            parent::__construct($index);
-
-            $this->force = $force;
-            $this->populating = $populating;
-        }
-
-        /**
-         * @return bool
-         */
-        public function isForce()
-        {
-            return $this->force;
-        }
-
-        /**
-         * @return bool
-         */
-        public function isPopulating()
-        {
-            return $this->populating;
-        }
-
-        /**
-         * @param bool $force
-         */
-        public function setForce($force)
-        {
-            $this->force = $force;
-        }
+    /**
+     * @param boolean $force
+     */
+    public function setForce($force)
+    {
+        $this->force = $force;
     }
 }

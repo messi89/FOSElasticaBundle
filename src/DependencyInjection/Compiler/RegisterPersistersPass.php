@@ -30,7 +30,7 @@ final class RegisterPersistersPass implements CompilerPassInterface
         $registry = $container->getDefinition('fos_elastica.persister_registry');
 
         $registeredPersisters = [];
-        foreach ($container->findTaggedServiceIds('fos_elastica.persister', true) as $id => $attributes) {
+        foreach ($container->findTaggedServiceIds('fos_elastica.persister') as $id => $attributes) {
             foreach ($attributes as $attribute) {
                 if (!isset($attribute['type'])) {
                     throw new \InvalidArgumentException(sprintf('Elastica persister "%s" must specify the "type" attribute.', $id));
@@ -50,14 +50,10 @@ final class RegisterPersistersPass implements CompilerPassInterface
                 }
 
                 $persisterDef = $container->getDefinition($id);
-                if (!$persisterDef->getFactory() && $persisterDef->getClass()) {
+                if (!$persisterDef->getFactory()) {
                     // You are on your own if you use a factory to create a persister.
                     // It would fail in runtime if the factory does not return a proper persister.
-                    $this->assertClassImplementsPersisterInterface($id, $container->getParameterBag()->resolveValue($persisterDef->getClass()));
-                }
-
-                if (!$persisterDef->isPublic()) {
-                    throw new \InvalidArgumentException(sprintf('Elastica persister "%s" must be a public service', $id));
+                    $this->assertClassImplementsPersisterInterface($id, $persisterDef->getClass());
                 }
 
                 $registeredPersisters[$index][$type] = $id;

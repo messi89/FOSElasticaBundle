@@ -1,9 +1,9 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
+/**
+ * This file is part of the FOSElasticaBundle project.
  *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
+ * (c) Tim Nagel <tim@nagel.com.au>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -19,7 +19,7 @@ interface ManagerInterface
     /**
      * Returns configuration for an index.
      *
-     * @param string $index
+     * @param $index
      *
      * @return IndexConfig
      */

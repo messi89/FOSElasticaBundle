@@ -1,14 +1,5 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace FOS\ElasticaBundle\Persister;
 
 /**
@@ -24,7 +15,7 @@ interface ObjectPersisterInterface
      *
      * @param mixed $object
      *
-     * @return bool
+     * @return boolean
      */
     public function handlesObject($object);
 
@@ -53,10 +44,9 @@ interface ObjectPersisterInterface
     /**
      * Deletes one object in the type by id.
      *
-     * @param mixed       $id
-     * @param string|bool $routing
+     * @param mixed $id
      */
-    public function deleteById($id, $routing = false);
+    public function deleteById($id);
 
     /**
      * Bulk inserts an array of objects in the type.
@@ -82,8 +72,7 @@ interface ObjectPersisterInterface
     /**
      * Bulk deletes records from an array of identifiers.
      *
-     * @param array       $identifiers array of domain model object identifiers
-     * @param string|bool $routing     optional routing key for all identifiers
+     * @param array $identifiers array of domain model object identifiers
      */
-    public function deleteManyByIdentifiers(array $identifiers, $routing = false);
+    public function deleteManyByIdentifiers(array $identifiers);
 }

@@ -1,17 +1,9 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace FOS\ElasticaBundle\Transformer;
 
 use FOS\ElasticaBundle\HybridResult;
+use Elastica\Document;
 
 /**
  * Holds a collection of transformers for an index wide transformation.
@@ -23,7 +15,7 @@ class ElasticaToModelTransformerCollection implements ElasticaToModelTransformer
     /**
      * @var ElasticaToModelTransformerInterface[]
      */
-    protected $transformers = [];
+    protected $transformers = array();
 
     /**
      * @param array $transformers
@@ -58,12 +50,12 @@ class ElasticaToModelTransformerCollection implements ElasticaToModelTransformer
      */
     public function transform(array $elasticaObjects)
     {
-        $sorted = [];
+        $sorted = array();
         foreach ($elasticaObjects as $object) {
             $sorted[$object->getType()][] = $object;
         }
 
-        $transformed = [];
+        $transformed = array();
         foreach ($sorted as $type => $objects) {
             $transformedObjects = $this->transformers[$type]->transform($objects);
             $identifierGetter = 'get'.ucfirst($this->transformers[$type]->getIdentifierField());
@@ -78,7 +70,7 @@ class ElasticaToModelTransformerCollection implements ElasticaToModelTransformer
             );
         }
 
-        $result = [];
+        $result = array();
         foreach ($elasticaObjects as $object) {
             if (array_key_exists((string) $object->getId(), $transformed[$object->getType()])) {
                 $result[] = $transformed[$object->getType()][(string) $object->getId()];
@@ -95,11 +87,8 @@ class ElasticaToModelTransformerCollection implements ElasticaToModelTransformer
     {
         $objects = $this->transform($elasticaObjects);
 
-        $result = [];
-        for ($i = 0, $j = count($elasticaObjects); $i < $j; ++$i) {
-            if (!isset($objects[$i])) {
-                continue;
-            }
+        $result = array();
+        for ($i = 0, $j = count($elasticaObjects); $i < $j; $i++) {
             $result[] = new HybridResult($elasticaObjects[$i], $objects[$i]);
         }
 

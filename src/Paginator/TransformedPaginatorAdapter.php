@@ -1,19 +1,10 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace FOS\ElasticaBundle\Paginator;
 
-use Elastica\Query;
-use Elastica\SearchableInterface;
 use FOS\ElasticaBundle\Transformer\ElasticaToModelTransformerInterface;
+use Elastica\SearchableInterface;
+use Elastica\Query;
 
 /**
  * Allows pagination of \Elastica\Query.
@@ -28,7 +19,7 @@ class TransformedPaginatorAdapter extends RawPaginatorAdapter
      * @param array                               $options
      * @param ElasticaToModelTransformerInterface $transformer the transformer for fetching the results
      */
-    public function __construct(SearchableInterface $searchable, Query $query, array $options, ElasticaToModelTransformerInterface $transformer)
+    public function __construct(SearchableInterface $searchable, Query $query, array $options = array(), ElasticaToModelTransformerInterface $transformer)
     {
         parent::__construct($searchable, $query, $options);
 
@@ -36,7 +27,7 @@ class TransformedPaginatorAdapter extends RawPaginatorAdapter
     }
 
     /**
-     * {@inheritdoc}
+     * {@inheritDoc}
      */
     public function getResults($offset, $length)
     {

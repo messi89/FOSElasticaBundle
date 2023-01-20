@@ -1,22 +1,11 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace FOS\ElasticaBundle\Transformer;
 
-use Elastica\Document;
 use FOS\ElasticaBundle\Event\TransformEvent;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface as LegacyEventDispatcherInterface;
-use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\EventDispatcher\LegacyEventDispatcherProxy;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
+use Elastica\Document;
 
 /**
  * Maps Elastica documents with Doctrine objects
@@ -26,7 +15,7 @@ use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 class ModelToElasticaAutoTransformer implements ModelToElasticaTransformerInterface
 {
     /**
-     * @var EventDispatcherInterface|LegacyEventDispatcherInterface
+     * @var EventDispatcherInterface
      */
     protected $dispatcher;
 
@@ -35,10 +24,9 @@ class ModelToElasticaAutoTransformer implements ModelToElasticaTransformerInterf
      *
      * @var array
      */
-    protected $options = [
+    protected $options = array(
         'identifier' => 'id',
-        'index' => '',
-    ];
+    );
 
     /**
      * PropertyAccessor instance.
@@ -50,17 +38,13 @@ class ModelToElasticaAutoTransformer implements ModelToElasticaTransformerInterf
     /**
      * Instanciates a new Mapper.
      *
-     * @param array                                                   $options
-     * @param EventDispatcherInterface|LegacyEventDispatcherInterface $dispatcher
+     * @param array                    $options
+     * @param EventDispatcherInterface $dispatcher
      */
-    public function __construct(array $options = [], /* EventDispatcherInterface */ $dispatcher = null)
+    public function __construct(array $options = array(), EventDispatcherInterface $dispatcher = null)
     {
         $this->options = array_merge($this->options, $options);
         $this->dispatcher = $dispatcher;
-
-        if (class_exists(LegacyEventDispatcherProxy::class)) {
-            $this->dispatcher = LegacyEventDispatcherProxy::decorate($dispatcher);
-        }
     }
 
     /**
@@ -88,7 +72,9 @@ class ModelToElasticaAutoTransformer implements ModelToElasticaTransformerInterf
             $identifier = (string) $identifier;
         }
 
-        return $this->transformObjectToDocument($object, $fields, $identifier);
+        $document = $this->transformObjectToDocument($object, $fields, $identifier);
+
+        return $document;
     }
 
     /**
@@ -102,7 +88,7 @@ class ModelToElasticaAutoTransformer implements ModelToElasticaTransformerInterf
     protected function transformNested($objects, array $fields)
     {
         if (is_array($objects) || $objects instanceof \Traversable || $objects instanceof \ArrayAccess) {
-            $documents = [];
+            $documents = array();
             foreach ($objects as $object) {
                 $document = $this->transformObjectToDocument($object, $fields);
                 $documents[] = $document->getData();
@@ -115,7 +101,7 @@ class ModelToElasticaAutoTransformer implements ModelToElasticaTransformerInterf
             return $document->getData();
         }
 
-        return [];
+        return array();
     }
 
     /**
@@ -146,27 +132,26 @@ class ModelToElasticaAutoTransformer implements ModelToElasticaTransformerInterf
     }
 
     /**
-     * Transforms the given object to an elastica document.
+     * Transforms the given object to an elastica document
      *
-     * @param object $object     the object to convert
-     * @param array  $fields     the keys we want to have in the returned array
+     * @param object $object the object to convert
+     * @param array  $fields the keys we want to have in the returned array
      * @param string $identifier the identifier for the new document
-     *
      * @return Document
      */
     protected function transformObjectToDocument($object, array $fields, $identifier = '')
     {
-        $document = new Document($identifier, [], '', $this->options['index']);
+        $document = new Document($identifier);
 
         if ($this->dispatcher) {
             $event = new TransformEvent($document, $fields, $object);
-            $this->dispatch($event, TransformEvent::PRE_TRANSFORM);
+            $this->dispatcher->dispatch(TransformEvent::PRE_TRANSFORM, $event);
 
             $document = $event->getDocument();
         }
 
         foreach ($fields as $key => $mapping) {
-            if ('_parent' == $key) {
+            if ($key == '_parent') {
                 $property = (null !== $mapping['property']) ? $mapping['property'] : $mapping['type'];
                 $value = $this->propertyAccessor->getValue($object, $property);
                 $document->setParent($this->propertyAccessor->getValue($value, $mapping['identifier']));
@@ -183,7 +168,7 @@ class ModelToElasticaAutoTransformer implements ModelToElasticaTransformerInterf
             $value = $this->propertyAccessor->getValue($object, $path);
 
             if (isset($mapping['type']) && in_array(
-                    $mapping['type'], ['nested', 'object']
+                    $mapping['type'], array('nested', 'object')
                 ) && isset($mapping['properties']) && !empty($mapping['properties'])
             ) {
                 /* $value is a nested document or object. Transform $value into
@@ -194,7 +179,7 @@ class ModelToElasticaAutoTransformer implements ModelToElasticaTransformerInterf
                 continue;
             }
 
-            if (isset($mapping['type']) && 'attachment' == $mapping['type']) {
+            if (isset($mapping['type']) && $mapping['type'] == 'attachment') {
                 // $value is an attachment. Add it to the document.
                 if ($value instanceof \SplFileInfo) {
                     $document->addFile($key, $value->getPathName());
@@ -210,22 +195,11 @@ class ModelToElasticaAutoTransformer implements ModelToElasticaTransformerInterf
 
         if ($this->dispatcher) {
             $event = new TransformEvent($document, $fields, $object);
-            $this->dispatch($event, TransformEvent::POST_TRANSFORM);
+            $this->dispatcher->dispatch(TransformEvent::POST_TRANSFORM, $event);
 
             $document = $event->getDocument();
         }
 
         return $document;
-    }
-
-    private function dispatch($event, $eventName): void
-    {
-        if ($this->dispatcher instanceof EventDispatcherInterface) {
-            // Symfony >= 4.3
-            $this->dispatcher->dispatch($event, $eventName);
-        } else {
-            // Symfony 3.4
-            $this->dispatcher->dispatch($eventName, $event);
-        }
     }
 }

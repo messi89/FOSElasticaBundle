@@ -1,43 +1,32 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace FOS\ElasticaBundle\Command;
 
+use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 use FOS\ElasticaBundle\Index\IndexManager;
 use FOS\ElasticaBundle\Index\Resetter;
-use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Reset search indexes.
  */
-class ResetCommand extends Command
+class ResetCommand extends ContainerAwareCommand
 {
-    protected static $defaultName = 'fos:elastica:reset';
-
+    /**
+     * @var IndexManager
+     */
     private $indexManager;
+
+    /**
+     * @var Resetter
+     */
     private $resetter;
 
-    public function __construct(
-        IndexManager $indexManager,
-        Resetter $resetter
-    ) {
-        parent::__construct();
-
-        $this->indexManager = $indexManager;
-        $this->resetter = $resetter;
-    }
-
+    /**
+     * @see Symfony\Component\Console\Command\Command::configure()
+     */
     protected function configure()
     {
         $this
@@ -49,7 +38,19 @@ class ResetCommand extends Command
         ;
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output): int
+    /**
+     * @see Symfony\Component\Console\Command\Command::initialize()
+     */
+    protected function initialize(InputInterface $input, OutputInterface $output)
+    {
+        $this->indexManager = $this->getContainer()->get('fos_elastica.index_manager');
+        $this->resetter = $this->getContainer()->get('fos_elastica.resetter');
+    }
+
+    /**
+     * @see Symfony\Component\Console\Command\Command::execute()
+     */
+    protected function execute(InputInterface $input, OutputInterface $output)
     {
         $index = $input->getOption('index');
         $type = $input->getOption('type');
@@ -65,7 +66,7 @@ class ResetCommand extends Command
         } else {
             $indexes = null === $index
                 ? array_keys($this->indexManager->getAllIndexes())
-                : [$index]
+                : array($index)
             ;
 
             foreach ($indexes as $index) {
@@ -73,7 +74,5 @@ class ResetCommand extends Command
                 $this->resetter->resetIndex($index, false, $force);
             }
         }
-
-        return 0;
     }
 }

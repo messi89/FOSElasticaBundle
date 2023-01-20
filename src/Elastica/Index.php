@@ -1,14 +1,5 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace FOS\ElasticaBundle\Elastica;
 
 use Elastica\Index as BaseIndex;
@@ -27,7 +18,7 @@ class Index extends BaseIndex
      *
      * @var array
      */
-    private $typeCache = [];
+    private $typeCache = array();
 
     /**
      * Returns the original name of the index if the index has been renamed for reindexing
@@ -40,6 +31,11 @@ class Index extends BaseIndex
         return $this->originalName ?: $this->_name;
     }
 
+    /**
+     * @param string $type
+     *
+     * @return mixed
+     */
     public function getType($type)
     {
         if (isset($this->typeCache[$type])) {

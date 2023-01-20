@@ -1,18 +1,9 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace FOS\ElasticaBundle\Paginator;
 
-use Elastica\Result;
 use Elastica\ResultSet;
+use Elastica\Result;
 
 /**
  * Raw partial results transforms to a simple array.
@@ -30,7 +21,7 @@ class RawPartialResults implements PartialResultsInterface
     }
 
     /**
-     * {@inheritdoc}
+     * {@inheritDoc}
      */
     public function toArray()
     {
@@ -40,7 +31,7 @@ class RawPartialResults implements PartialResultsInterface
     }
 
     /**
-     * {@inheritdoc}
+     * {@inheritDoc}
      */
     public function getTotalHits()
     {
@@ -48,7 +39,7 @@ class RawPartialResults implements PartialResultsInterface
     }
 
     /**
-     * {@inheritdoc}
+     * {@inheritDoc}
      */
     public function getAggregations()
     {
@@ -60,7 +51,7 @@ class RawPartialResults implements PartialResultsInterface
     }
 
     /**
-     * {@inheritdoc}
+     * {@inheritDoc}
      */
     public function getSuggests()
     {

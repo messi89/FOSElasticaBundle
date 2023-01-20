@@ -1,14 +1,5 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace FOS\ElasticaBundle\Subscriber;
 
 use FOS\ElasticaBundle\Paginator\PaginatorAdapterInterface;
@@ -21,16 +12,20 @@ use Symfony\Component\HttpFoundation\RequestStack;
 class PaginateElasticaQuerySubscriber implements EventSubscriberInterface
 {
     /**
-     * @var RequestStack
+     * @var Request
      */
-    private $requestStack;
+    private $request;
 
     /**
-     * @param RequestStack $requestStack
+     * @param RequestStack|Request $requestStack
      */
-    public function __construct(RequestStack $requestStack)
+    public function setRequest($requestStack)
     {
-        $this->requestStack = $requestStack;
+        if ($requestStack instanceof Request) {
+            $this->request = $requestStack;
+        } elseif ($requestStack instanceof RequestStack) {
+            $this->request = $requestStack->getMasterRequest();
+        }
     }
 
     /**
@@ -57,16 +52,6 @@ class PaginateElasticaQuerySubscriber implements EventSubscriberInterface
     }
 
     /**
-     * @return array
-     */
-    public static function getSubscribedEvents()
-    {
-        return [
-            'knp_pager.items' => ['items', 1],
-        ];
-    }
-
-    /**
      * Adds knp paging sort to query.
      *
      * @param ItemsEvent $event
@@ -74,16 +59,16 @@ class PaginateElasticaQuerySubscriber implements EventSubscriberInterface
     protected function setSorting(ItemsEvent $event)
     {
         $options = $event->options;
-        $sortField = $this->getFromRequest($options['sortFieldParameterName'] ?? null);
+        $sortField = $this->request->get($options['sortFieldParameterName']);
 
         if (!$sortField && isset($options['defaultSortFieldName'])) {
             $sortField = $options['defaultSortFieldName'];
         }
 
         if (!empty($sortField)) {
-            $event->target->getQuery()->setSort([
+            $event->target->getQuery()->setSort(array(
                 $sortField => $this->getSort($sortField, $options),
-            ]);
+            ));
         }
     }
 
@@ -117,7 +102,7 @@ class PaginateElasticaQuerySubscriber implements EventSubscriberInterface
     protected function getSortDirection($sortField, array $options = [])
     {
         $dir = 'asc';
-        $sortDirection = $this->getFromRequest($options['sortDirectionParameterName']);
+        $sortDirection = $this->request->get($options['sortDirectionParameterName']);
 
         if (empty($sortDirection) && isset($options['defaultSortDirection'])) {
             $sortDirection = $options['defaultSortDirection'];
@@ -136,23 +121,12 @@ class PaginateElasticaQuerySubscriber implements EventSubscriberInterface
     }
 
     /**
-     * @return Request|null
+     * @return array
      */
-    private function getRequest()
+    public static function getSubscribedEvents()
     {
-        return $this->requestStack->getCurrentRequest();
-    }
-
-    /**
-     * @param string|null $key
-     * @return mixed|null
-     */
-    private function getFromRequest(?string $key)
-    {
-        if (null !== $key && null !== $request = $this->getRequest()) {
-            return $request->get($key);
-        }
-
-        return null;
+        return array(
+            'knp_pager.items' => array('items', 1),
+        );
     }
 }

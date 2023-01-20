@@ -1,14 +1,5 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace FOS\ElasticaBundle\DependencyInjection;
 
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
@@ -17,7 +8,12 @@ use Symfony\Component\Config\Definition\ConfigurationInterface;
 
 class Configuration implements ConfigurationInterface
 {
-    const SUPPORTED_DRIVERS = ['orm', 'mongodb', 'phpcr'];
+    /**
+     * Stores supported database drivers.
+     *
+     * @var array
+     */
+    private $supportedDrivers = array('orm', 'mongodb', 'propel', 'phpcr');
 
     /**
      * If the kernel is running in debug mode.
@@ -38,18 +34,11 @@ class Configuration implements ConfigurationInterface
      */
     public function getConfigTreeBuilder()
     {
-        $treeBuilder = new TreeBuilder('fos_elastica');
-
-        if (method_exists($treeBuilder, 'getRootNode')) {
-            $rootNode = $treeBuilder->getRootNode();
-        } else {
-            // BC layer for symfony/config 4.1 and older
-            $rootNode = $treeBuilder->root('fos_elastica');
-        }
+        $treeBuilder = new TreeBuilder();
+        $rootNode = $treeBuilder->root('fos_elastica', 'array');
 
         $this->addClientsSection($rootNode);
         $this->addIndexesSection($rootNode);
-        $this->addIndexTemplatesSection($rootNode);
 
         $rootNode
             ->children()
@@ -61,7 +50,7 @@ class Configuration implements ConfigurationInterface
                 ->end()
                 ->scalarNode('default_manager')->defaultValue('orm')->end()
                 ->arrayNode('serializer')
-                    ->treatNullLike([])
+                    ->treatNullLike(array())
                     ->children()
                         ->scalarNode('callback_class')->defaultValue('FOS\ElasticaBundle\Serializer\Callback')->end()
                         ->scalarNode('serializer')->defaultValue('serializer')->end()
@@ -74,58 +63,188 @@ class Configuration implements ConfigurationInterface
     }
 
     /**
-     * Returns the array node used for "dynamic_templates".
+     * Adds the configuration for the "clients" key.
      */
-    private function getDynamicTemplateNode()
+    private function addClientsSection(ArrayNodeDefinition $rootNode)
     {
-        $node = $this->createTreeBuilderNode('dynamic_templates');
+        $rootNode
+            ->fixXmlConfig('client')
+            ->children()
+                ->arrayNode('clients')
+                    ->useAttributeAsKey('id')
+                    ->prototype('array')
+                        ->performNoDeepMerging()
+                        // BC - Renaming 'servers' node to 'connections'
+                        ->beforeNormalization()
+                        ->ifTrue(function ($v) { return isset($v['servers']); })
+                        ->then(function ($v) {
+                            $v['connections'] = $v['servers'];
+                            unset($v['servers']);
 
-        $node
-            ->prototype('array')
-                ->prototype('array')
-                    ->children()
-                        ->scalarNode('match')->end()
-                        ->scalarNode('unmatch')->end()
-                        ->scalarNode('match_mapping_type')->end()
-                        ->scalarNode('path_match')->end()
-                        ->scalarNode('path_unmatch')->end()
-                        ->scalarNode('match_pattern')->end()
-                        ->arrayNode('mapping')
-                            ->prototype('variable')
-                                ->treatNullLike([])
+                            return $v;
+                        })
+                        ->end()
+                        // Elastica names its properties with camel case, support both
+                        ->beforeNormalization()
+                        ->ifTrue(function ($v) { return isset($v['connection_strategy']); })
+                        ->then(function ($v) {
+                            $v['connectionStrategy'] = $v['connection_strategy'];
+                            unset($v['connection_strategy']);
+
+                            return $v;
+                        })
+                        ->end()
+                        // If there is no connections array key defined, assume a single connection.
+                        ->beforeNormalization()
+                        ->ifTrue(function ($v) { return is_array($v) && !array_key_exists('connections', $v); })
+                        ->then(function ($v) {
+                            return array(
+                                'connections' => array($v),
+                            );
+                        })
+                        ->end()
+                        ->children()
+                            ->arrayNode('connections')
+                                ->requiresAtLeastOneElement()
+                                ->prototype('array')
+                                    ->fixXmlConfig('header')
+                                    ->children()
+                                        ->scalarNode('url')
+                                            ->validate()
+                                                ->ifTrue(function ($url) { return $url && substr($url, -1) !== '/'; })
+                                                ->then(function ($url) { return $url.'/'; })
+                                            ->end()
+                                        ->end()
+                                        ->scalarNode('host')->end()
+                                        ->scalarNode('port')->end()
+                                        ->scalarNode('proxy')->end()
+                                        ->scalarNode('aws_access_key_id')->end()
+                                        ->scalarNode('aws_secret_access_key')->end()
+                                        ->scalarNode('aws_region')->end()
+                                        ->scalarNode('aws_session_token')->end()
+                                        ->scalarNode('logger')
+                                            ->defaultValue($this->debug ? 'fos_elastica.logger' : false)
+                                            ->treatNullLike('fos_elastica.logger')
+                                            ->treatTrueLike('fos_elastica.logger')
+                                        ->end()
+                                        ->booleanNode('compression')->defaultValue(false)->end()
+                                        ->arrayNode('headers')
+                                            ->useAttributeAsKey('name')
+                                            ->prototype('scalar')->end()
+                                        ->end()
+                                        ->scalarNode('transport')->end()
+                                        ->scalarNode('timeout')->end()
+                                        ->scalarNode('connectTimeout')->end()
+                                        ->scalarNode('retryOnConflict')
+                                            ->defaultValue(0)
+                                        ->end()
+                                    ->end()
+                                ->end()
                             ->end()
+                            ->scalarNode('timeout')->end()
+                            ->scalarNode('connectTimeout')->end()
+                            ->scalarNode('headers')->end()
+                            ->scalarNode('connectionStrategy')->defaultValue('Simple')->end()
                         ->end()
                     ->end()
                 ->end()
             ->end()
         ;
+    }
 
-        return $node;
+    /**
+     * Adds the configuration for the "indexes" key.
+     */
+    private function addIndexesSection(ArrayNodeDefinition $rootNode)
+    {
+        $rootNode
+            ->fixXmlConfig('index')
+            ->children()
+                ->arrayNode('indexes')
+                    ->useAttributeAsKey('name')
+                    ->prototype('array')
+                        ->children()
+                            ->scalarNode('index_name')
+                                ->info('Defaults to the name of the index, but can be modified if the index name is different in ElasticSearch')
+                            ->end()
+                            ->booleanNode('use_alias')->defaultValue(false)->end()
+                            ->scalarNode('client')->end()
+                            ->scalarNode('finder')
+                                ->treatNullLike(true)
+                                ->defaultFalse()
+                            ->end()
+                            ->arrayNode('type_prototype')
+                                ->children()
+                                    ->scalarNode('analyzer')->end()
+                                    ->append($this->getPersistenceNode())
+                                    ->append($this->getSerializerNode())
+                                ->end()
+                            ->end()
+                            ->variableNode('settings')->defaultValue(array())->end()
+                        ->end()
+                        ->append($this->getTypesNode())
+                    ->end()
+                ->end()
+            ->end()
+        ;
     }
 
     /**
      * Returns the array node used for "types".
      */
-    private function getTypesNode()
+    protected function getTypesNode()
     {
-        $node = $this->createTreeBuilderNode('types');
+        $builder = new TreeBuilder();
+        $node = $builder->root('types');
 
         $node
             ->useAttributeAsKey('name')
             ->prototype('array')
-                ->treatNullLike([])
+                ->treatNullLike(array())
                 ->beforeNormalization()
                 ->ifNull()
-                    ->thenEmptyArray()
+                ->thenEmptyArray()
+                ->end()
+                // BC - Renaming 'mappings' node to 'properties'
+                ->beforeNormalization()
+                ->ifTrue(function ($v) { return array_key_exists('mappings', $v); })
+                ->then(function ($v) {
+                    $v['properties'] = $v['mappings'];
+                    unset($v['mappings']);
+
+                    return $v;
+                })
+                ->end()
+                // BC - Support the old is_indexable_callback property
+                ->beforeNormalization()
+                ->ifTrue(function ($v) {
+                    return isset($v['persistence']) &&
+                        isset($v['persistence']['listener']) &&
+                        isset($v['persistence']['listener']['is_indexable_callback']);
+                })
+                ->then(function ($v) {
+                    $callback = $v['persistence']['listener']['is_indexable_callback'];
+
+                    if (is_array($callback)) {
+                        list($class) = $callback + array(null);
+
+                        if ($class[0] !== '@' && is_string($class) && !class_exists($class)) {
+                            $callback[0] = '@'.$class;
+                        }
+                    }
+
+                    $v['indexable_callback'] = $callback;
+                    unset($v['persistence']['listener']['is_indexable_callback']);
+
+                    return $v;
+                })
                 ->end()
                 // Support multiple dynamic_template formats to match the old bundle style
                 // and the way ElasticSearch expects them
                 ->beforeNormalization()
-                ->ifTrue(function ($v) {
-                    return isset($v['dynamic_templates']);
-                })
+                ->ifTrue(function ($v) { return isset($v['dynamic_templates']); })
                 ->then(function ($v) {
-                    $dt = [];
+                    $dt = array();
                     foreach ($v['dynamic_templates'] as $key => $type) {
                         if (is_int($key)) {
                             $dt[] = $type;
@@ -153,9 +272,12 @@ class Configuration implements ConfigurationInterface
                 ->append($this->getPropertiesNode())
                 ->append($this->getDynamicTemplateNode())
                 ->append($this->getSourceNode())
+                ->append($this->getBoostNode())
                 ->append($this->getRoutingNode())
                 ->append($this->getParentNode())
                 ->append($this->getAllNode())
+                ->append($this->getTimestampNode())
+                ->append($this->getTtlNode())
             ->end()
         ;
 
@@ -165,14 +287,46 @@ class Configuration implements ConfigurationInterface
     /**
      * Returns the array node used for "properties".
      */
-    private function getPropertiesNode()
+    protected function getPropertiesNode()
     {
-        $node = $this->createTreeBuilderNode('properties');
+        $builder = new TreeBuilder();
+        $node = $builder->root('properties');
 
         $node
             ->useAttributeAsKey('name')
             ->prototype('variable')
-                ->treatNullLike([]);
+                ->treatNullLike(array());
+
+        return $node;
+    }
+
+    /**
+     * Returns the array node used for "dynamic_templates".
+     */
+    public function getDynamicTemplateNode()
+    {
+        $builder = new TreeBuilder();
+        $node = $builder->root('dynamic_templates');
+
+        $node
+            ->prototype('array')
+                ->prototype('array')
+                    ->children()
+                        ->scalarNode('match')->end()
+                        ->scalarNode('unmatch')->end()
+                        ->scalarNode('match_mapping_type')->end()
+                        ->scalarNode('path_match')->end()
+                        ->scalarNode('path_unmatch')->end()
+                        ->scalarNode('match_pattern')->end()
+                        ->arrayNode('mapping')
+                            ->prototype('variable')
+                                ->treatNullLike(array())
+                            ->end()
+                        ->end()
+                    ->end()
+                ->end()
+            ->end()
+        ;
 
         return $node;
     }
@@ -180,9 +334,10 @@ class Configuration implements ConfigurationInterface
     /**
      * Returns the array node used for "_id".
      */
-    private function getIdNode()
+    protected function getIdNode()
     {
-        $node = $this->createTreeBuilderNode('_id');
+        $builder = new TreeBuilder();
+        $node = $builder->root('_id');
 
         $node
             ->children()
@@ -196,9 +351,10 @@ class Configuration implements ConfigurationInterface
     /**
      * Returns the array node used for "_source".
      */
-    private function getSourceNode()
+    protected function getSourceNode()
     {
-        $node = $this->createTreeBuilderNode('_source');
+        $builder = new TreeBuilder();
+        $node = $builder->root('_source');
 
         $node
             ->children()
@@ -220,11 +376,30 @@ class Configuration implements ConfigurationInterface
     }
 
     /**
+     * Returns the array node used for "_boost".
+     */
+    protected function getBoostNode()
+    {
+        $builder = new TreeBuilder();
+        $node = $builder->root('_boost');
+
+        $node
+            ->children()
+                ->scalarNode('name')->end()
+                ->scalarNode('null_value')->end()
+            ->end()
+        ;
+
+        return $node;
+    }
+
+    /**
      * Returns the array node used for "_routing".
      */
-    private function getRoutingNode()
+    protected function getRoutingNode()
     {
-        $node = $this->createTreeBuilderNode('_routing');
+        $builder = new TreeBuilder();
+        $node = $builder->root('_routing');
 
         $node
             ->children()
@@ -239,9 +414,10 @@ class Configuration implements ConfigurationInterface
     /**
      * Returns the array node used for "_parent".
      */
-    private function getParentNode()
+    protected function getParentNode()
     {
-        $node = $this->createTreeBuilderNode('_parent');
+        $builder = new TreeBuilder();
+        $node = $builder->root('_parent');
 
         $node
             ->children()
@@ -257,9 +433,10 @@ class Configuration implements ConfigurationInterface
     /**
      * Returns the array node used for "_all".
      */
-    private function getAllNode()
+    protected function getAllNode()
     {
-        $node = $this->createTreeBuilderNode('_all');
+        $builder = new TreeBuilder();
+        $node = $builder->root('_all');
 
         $node
             ->children()
@@ -272,25 +449,69 @@ class Configuration implements ConfigurationInterface
     }
 
     /**
+     * Returns the array node used for "_timestamp".
+     */
+    protected function getTimestampNode()
+    {
+        $builder = new TreeBuilder();
+        $node = $builder->root('_timestamp');
+
+        $node
+            ->children()
+            ->scalarNode('enabled')->defaultValue(true)->end()
+            ->scalarNode('path')->end()
+            ->scalarNode('format')->end()
+            ->scalarNode('store')->end()
+            ->scalarNode('index')->end()
+            ->end()
+        ;
+
+        return $node;
+    }
+
+    /**
+     * Returns the array node used for "_ttl".
+     */
+    protected function getTtlNode()
+    {
+        $builder = new TreeBuilder();
+        $node = $builder->root('_ttl');
+
+        $node
+            ->children()
+            ->scalarNode('enabled')->defaultValue(true)->end()
+            ->scalarNode('default')->end()
+            ->scalarNode('store')->end()
+            ->scalarNode('index')->end()
+            ->end()
+        ;
+
+        return $node;
+    }
+
+    /**
      * @return ArrayNodeDefinition|\Symfony\Component\Config\Definition\Builder\NodeDefinition
      */
-    private function getPersistenceNode()
+    protected function getPersistenceNode()
     {
-        $node = $this->createTreeBuilderNode('persistence');
+        $builder = new TreeBuilder();
+        $node = $builder->root('persistence');
 
         $node
             ->validate()
-                ->ifTrue(function ($v) {
-                    return isset($v['driver']) && 'orm' !== $v['driver'] && !empty($v['elastica_to_model_transformer']['hints']);
-                })
+                ->ifTrue(function ($v) { return isset($v['driver']) && 'propel' === $v['driver'] && isset($v['listener']); })
+                    ->thenInvalid('Propel doesn\'t support listeners')
+                ->ifTrue(function ($v) { return isset($v['driver']) && 'propel' === $v['driver'] && isset($v['repository']); })
+                    ->thenInvalid('Propel doesn\'t support the "repository" parameter')
+                ->ifTrue(function($v) { return isset($v['driver']) && 'orm' !== $v['driver'] && !empty($v['elastica_to_model_transformer']['hints']); })
                     ->thenInvalid('Hints are only supported by the "orm" driver')
             ->end()
             ->children()
                 ->scalarNode('driver')
                     ->defaultValue('orm')
                     ->validate()
-                    ->ifNotInArray(self::SUPPORTED_DRIVERS)
-                        ->thenInvalid('The driver %s is not supported. Please choose one of '.json_encode(self::SUPPORTED_DRIVERS))
+                    ->ifNotInArray($this->supportedDrivers)
+                        ->thenInvalid('The driver %s is not supported. Please choose one of '.json_encode($this->supportedDrivers))
                     ->end()
                 ->end()
                 ->scalarNode('model')->defaultValue(null)->end()
@@ -307,6 +528,10 @@ class Configuration implements ConfigurationInterface
                         ->end()
                         ->scalarNode('query_builder_method')->defaultValue('createQueryBuilder')->end()
                         ->scalarNode('service')->end()
+                        ->booleanNode('pager_provider')
+                            ->defaultFalse()
+                            ->info('If true, a pager provider will also be registered.')
+                        ->end()
                     ->end()
                 ->end()
                 ->arrayNode('listener')
@@ -317,7 +542,6 @@ class Configuration implements ConfigurationInterface
                         ->scalarNode('update')->defaultTrue()->end()
                         ->scalarNode('delete')->defaultTrue()->end()
                         ->scalarNode('flush')->defaultTrue()->end()
-                        ->booleanNode('defer')->defaultFalse()->end()
                         ->scalarNode('logger')
                             ->defaultFalse()
                             ->treatNullLike('fos_elastica.logger')
@@ -361,11 +585,6 @@ class Configuration implements ConfigurationInterface
                 ->arrayNode('persister')
                     ->addDefaultsIfNotSet()
                     ->children()
-                        ->enumNode('refresh')
-                            ->treatTrueLike('true')
-                            ->treatFalseLike('false')
-                            ->values(['true', 'wait_for', 'false'])
-                        ->end()
                         ->scalarNode('service')->end()
                     ->end()
                 ->end()
@@ -377,15 +596,16 @@ class Configuration implements ConfigurationInterface
     /**
      * @return ArrayNodeDefinition|\Symfony\Component\Config\Definition\Builder\NodeDefinition
      */
-    private function getSerializerNode()
+    protected function getSerializerNode()
     {
-        $node = $this->createTreeBuilderNode('serializer');
+        $builder = new TreeBuilder();
+        $node = $builder->root('serializer');
 
         $node
             ->addDefaultsIfNotSet()
             ->children()
                 ->arrayNode('groups')
-                    ->treatNullLike([])
+                    ->treatNullLike(array())
                     ->prototype('scalar')->end()
                 ->end()
                 ->scalarNode('version')->end()
@@ -395,195 +615,5 @@ class Configuration implements ConfigurationInterface
             ->end();
 
         return $node;
-    }
-
-    /**
-     * Adds the configuration for the "clients" key.
-     */
-    private function addClientsSection(ArrayNodeDefinition $rootNode)
-    {
-        $rootNode
-            ->fixXmlConfig('client')
-            ->children()
-                ->arrayNode('clients')
-                    ->useAttributeAsKey('id')
-                    ->prototype('array')
-                        ->performNoDeepMerging()
-                        // Elastica names its properties with camel case, support both
-                        ->beforeNormalization()
-                        ->ifTrue(function ($v) {
-                            return isset($v['connection_strategy']);
-                        })
-                        ->then(function ($v) {
-                            $v['connectionStrategy'] = $v['connection_strategy'];
-                            unset($v['connection_strategy']);
-
-                            return $v;
-                        })
-                        ->end()
-                        // If there is no connections array key defined, assume a single connection.
-                        ->beforeNormalization()
-                        ->ifTrue(function ($v) {
-                            return is_array($v) && !array_key_exists('connections', $v);
-                        })
-                        ->then(function ($v) {
-                            return [
-                                'connections' => [$v],
-                            ];
-                        })
-                        ->end()
-                        ->children()
-                            ->arrayNode('connections')
-                                ->requiresAtLeastOneElement()
-                                ->prototype('array')
-                                    ->fixXmlConfig('header')
-                                    ->children()
-                                        ->scalarNode('url')
-                                            ->validate()
-                                                ->ifTrue(function ($url) {
-                                                    return $url && '/' !== substr($url, -1);
-                                                })
-                                                ->then(function ($url) {
-                                                    return $url.'/';
-                                                })
-                                            ->end()
-                                        ->end()
-                                        ->scalarNode('username')->end()
-                                        ->scalarNode('password')->end()
-                                        ->scalarNode('host')->end()
-                                        ->scalarNode('port')->end()
-                                        ->scalarNode('proxy')->end()
-                                        ->arrayNode('http_error_codes')
-                                            ->beforeNormalization()
-                                                ->ifTrue(function ($v) { return !is_array($v); })
-                                                ->then(function ($v) { return array($v); })
-                                            ->end()
-                                            ->requiresAtLeastOneElement()
-                                            ->defaultValue([400, 403, 404])
-                                            ->prototype('scalar')->end()
-                                        ->end()
-                                        ->scalarNode('aws_access_key_id')->end()
-                                        ->scalarNode('aws_secret_access_key')->end()
-                                        ->scalarNode('aws_region')->end()
-                                        ->scalarNode('aws_session_token')->end()
-                                        ->booleanNode('ssl')->defaultValue(false)->end()
-                                        ->scalarNode('logger')
-                                            ->defaultValue($this->debug ? 'fos_elastica.logger' : false)
-                                            ->treatNullLike('fos_elastica.logger')
-                                            ->treatTrueLike('fos_elastica.logger')
-                                        ->end()
-                                        ->booleanNode('compression')->defaultValue(false)->end()
-                                        ->arrayNode('headers')
-                                            ->normalizeKeys(false)
-                                            ->useAttributeAsKey('name')
-                                            ->prototype('scalar')->end()
-                                        ->end()
-                                        ->arrayNode('curl')
-                                            ->useAttributeAsKey(CURLOPT_SSL_VERIFYPEER)
-                                            ->prototype('boolean')->end()
-                                        ->end()
-                                        ->scalarNode('transport')->end()
-                                        ->scalarNode('timeout')->end()
-                                        ->scalarNode('connectTimeout')->end()
-                                        ->scalarNode('retryOnConflict')
-                                            ->defaultValue(0)
-                                        ->end()
-                                        ->booleanNode('persistent')->defaultValue(true)->end()
-                                    ->end()
-                                ->end()
-                            ->end()
-                            ->scalarNode('timeout')->end()
-                            ->scalarNode('connectTimeout')->end()
-                            ->scalarNode('headers')->end()
-                            ->scalarNode('connectionStrategy')->defaultValue('Simple')->end()
-                        ->end()
-                    ->end()
-                ->end()
-            ->end()
-        ;
-    }
-
-    /**
-     * Adds the configuration for the "indexes" key.
-     */
-    private function addIndexesSection(ArrayNodeDefinition $rootNode)
-    {
-        $rootNode
-            ->fixXmlConfig('index')
-            ->children()
-                ->arrayNode('indexes')
-                    ->useAttributeAsKey('name')
-                    ->prototype('array')
-                        ->children()
-                            ->scalarNode('index_name')
-                                ->info('Defaults to the name of the index, but can be modified if the index name is different in ElasticSearch')
-                            ->end()
-                            ->booleanNode('use_alias')->defaultValue(false)->end()
-                            ->scalarNode('client')->end()
-                            ->scalarNode('finder')
-                                ->treatNullLike(true)
-                                ->defaultFalse()
-                            ->end()
-                            ->arrayNode('type_prototype')
-                                ->children()
-                                    ->scalarNode('analyzer')->end()
-                                    ->append($this->getPersistenceNode())
-                                    ->append($this->getSerializerNode())
-                                ->end()
-                            ->end()
-                            ->variableNode('settings')->defaultValue([])->end()
-                        ->end()
-                        ->append($this->getTypesNode())
-                    ->end()
-                ->end()
-            ->end()
-        ;
-    }
-
-    /**
-     * @return ArrayNodeDefinition|\Symfony\Component\Config\Definition\Builder\NodeDefinition
-     */
-    private function createTreeBuilderNode($name)
-    {
-        $builder = new TreeBuilder($name);
-
-        if (method_exists($builder, 'getRootNode')) {
-            $node = $builder->getRootNode();
-        } else {
-            // BC layer for symfony/config 4.1 and older
-            $node = $builder->root($name);
-        }
-
-        return $node;
-    }
-
-    /**
-     * Adds the configuration for the "index_templates" key.
-     *
-     * @param ArrayNodeDefinition $rootNode
-     *
-     * @return void
-     */
-    private function addIndexTemplatesSection(ArrayNodeDefinition $rootNode)
-    {
-        $rootNode
-            ->fixXmlConfig('index_template')
-            ->children()
-                ->arrayNode('index_templates')
-                    ->useAttributeAsKey('name')
-                    ->prototype('array')
-                        ->children()
-                            ->scalarNode('template_name')
-                                ->info('Defaults to the name of the index template, but can be modified if the index name is different in ElasticSearch')
-                            ->end()
-                            ->scalarNode('template')->isRequired()->end()
-                            ->scalarNode('client')->end()
-                            ->variableNode('settings')->defaultValue([])->end()
-                        ->end()
-                        ->append($this->getTypesNode())
-                    ->end()
-                ->end()
-            ->end()
-        ;
     }
 }

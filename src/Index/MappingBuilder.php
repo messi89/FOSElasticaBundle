@@ -1,9 +1,9 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
+/**
+ * This file is part of the FOSElasticaBundle project.
  *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
+ * (c) Infinite Networks Pty Ltd <http://www.infinite.net.au>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -11,27 +11,33 @@
 
 namespace FOS\ElasticaBundle\Index;
 
-use FOS\ElasticaBundle\Configuration\IndexConfigInterface;
-use FOS\ElasticaBundle\Configuration\IndexTemplateConfig;
+use FOS\ElasticaBundle\Configuration\IndexConfig;
 use FOS\ElasticaBundle\Configuration\TypeConfig;
 
 class MappingBuilder
 {
     /**
+     * Skip adding default information to certain fields.
+     *
+     * @var array
+     */
+    private $skipTypes = array('completion');
+
+    /**
      * Builds mappings for an entire index.
      *
-     * @param IndexConfigInterface $indexConfig
+     * @param IndexConfig $indexConfig
      *
      * @return array
      */
-    public function buildIndexMapping(IndexConfigInterface $indexConfig)
+    public function buildIndexMapping(IndexConfig $indexConfig)
     {
-        $typeMappings = [];
+        $typeMappings = array();
         foreach ($indexConfig->getTypes() as $typeConfig) {
             $typeMappings[$typeConfig->getName()] = $this->buildTypeMapping($typeConfig);
         }
 
-        $mapping = [];
+        $mapping = array();
         if (!empty($typeMappings)) {
             $mapping['mappings'] = $typeMappings;
         }
@@ -41,21 +47,6 @@ class MappingBuilder
         if (!empty($settings)) {
             $mapping['settings'] = $settings;
         }
-
-        return $mapping;
-    }
-
-    /**
-     * Builds mappings for an entire index template.
-     *
-     * @param IndexTemplateConfig $indexTemplateConfig
-     *
-     * @return array
-     */
-    public function buildIndexTemplateMapping(IndexTemplateConfig $indexTemplateConfig)
-    {
-        $mapping = $this->buildIndexMapping($indexTemplateConfig);
-        $mapping['template'] = $indexTemplateConfig->getTemplate();
 
         return $mapping;
     }
@@ -87,7 +78,7 @@ class MappingBuilder
             $mapping['analyzer'] = $typeConfig->getAnalyzer();
         }
 
-        if (null !== $typeConfig->getDynamic()) {
+        if ($typeConfig->getDynamic() !== null) {
             $mapping['dynamic'] = $typeConfig->getDynamic();
         }
 
@@ -126,13 +117,16 @@ class MappingBuilder
             unset($property['property_path']);
 
             if (!isset($property['type'])) {
-                $property['type'] = 'text';
+                $property['type'] = 'string';
             }
-            if (isset($property['fields'])) {
+            if ($property['type'] == 'multi_field' && isset($property['fields'])) {
                 $this->fixProperties($property['fields']);
             }
             if (isset($property['properties'])) {
                 $this->fixProperties($property['properties']);
+            }
+            if (in_array($property['type'], $this->skipTypes)) {
+                continue;
             }
         }
     }

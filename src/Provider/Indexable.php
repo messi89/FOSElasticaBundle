@@ -1,9 +1,9 @@
 <?php
 
-/*
- * This file is part of the FOSElasticaBundle package.
+/**
+ * This file is part of the FOSElasticaBundle project.
  *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
+ * (c) FriendsOfSymfony <https://github.com/FriendsOfSymfony/FOSElasticaBundle/graphs/contributors>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -11,18 +11,24 @@
 
 namespace FOS\ElasticaBundle\Provider;
 
+use Symfony\Component\DependencyInjection\ContainerAwareInterface;
+use Symfony\Component\DependencyInjection\ContainerAwareTrait;
 use Symfony\Component\ExpressionLanguage\Expression;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
 use Symfony\Component\ExpressionLanguage\SyntaxError;
+use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 
-class Indexable implements IndexableInterface
+class Indexable implements IndexableInterface, ContainerAwareInterface
 {
+    use ContainerAwareTrait;
+
     /**
      * An array of raw configured callbacks for all types.
      *
      * @var array
      */
-    private $callbacks = [];
+    private $callbacks = array();
 
     /**
      * An instance of ExpressionLanguage.
@@ -36,11 +42,22 @@ class Indexable implements IndexableInterface
      *
      * @var array
      */
-    private $initialisedCallbacks = [];
+    private $initialisedCallbacks = array();
 
+    /**
+     * PropertyAccessor instance.
+     *
+     * @var PropertyAccessorInterface
+     */
+    private $propertyAccessor;
+
+    /**
+     * @param array $callbacks
+     */
     public function __construct(array $callbacks)
     {
         $this->callbacks = $callbacks;
+        $this->propertyAccessor = PropertyAccess::createPropertyAccessor();
     }
 
     /**
@@ -61,14 +78,14 @@ class Indexable implements IndexableInterface
         }
 
         if ($callback instanceof Expression) {
-            return (bool) $this->getExpressionLanguage()->evaluate($callback, [
+            return (bool) $this->getExpressionLanguage()->evaluate($callback, array(
                 'object' => $object,
                 $this->getExpressionVar($object) => $object,
-            ]);
+            ));
         }
 
         return is_string($callback)
-            ? call_user_func([$object, $callback])
+            ? call_user_func(array($object, $callback))
             : call_user_func($callback, $object);
     }
 
@@ -78,18 +95,22 @@ class Indexable implements IndexableInterface
      * @param string $type
      * @param object $object
      *
-     * @return callable|string|ExpressionLanguage|null
+     * @return mixed
      */
     private function buildCallback($type, $object)
     {
         if (!array_key_exists($type, $this->callbacks)) {
-            return null;
+            return;
         }
 
         $callback = $this->callbacks[$type];
 
-        if (is_callable($callback) or is_callable([$object, $callback])) {
+        if (is_callable($callback) or is_callable(array($object, $callback))) {
             return $callback;
+        }
+
+        if (is_array($callback) && !is_object($callback[0])) {
+            return $this->processArrayToCallback($type, $callback);
         }
 
         if (is_string($callback)) {
@@ -103,7 +124,7 @@ class Indexable implements IndexableInterface
      * Processes a string expression into an Expression.
      *
      * @param string $type
-     * @param mixed  $object
+     * @param mixed $object
      * @param string $callback
      *
      * @return Expression
@@ -117,9 +138,9 @@ class Indexable implements IndexableInterface
 
         try {
             $callback = new Expression($callback);
-            $expression->compile($callback, [
-                'object', $this->getExpressionVar($object),
-            ]);
+            $expression->compile($callback, array(
+                'object', $this->getExpressionVar($object)
+            ));
 
             return $callback;
         } catch (SyntaxError $e) {
@@ -178,5 +199,39 @@ class Indexable implements IndexableInterface
         $ref = new \ReflectionClass($object);
 
         return strtolower($ref->getShortName());
+    }
+
+    /**
+     * Processes an array into a callback. Replaces the first element with a service if
+     * it begins with an @.
+     *
+     * @param string $type
+     * @param array $callback
+     *
+     * @return array
+     */
+    private function processArrayToCallback($type, array $callback)
+    {
+        list($class, $method) = $callback + array(null, '__invoke');
+
+        if (strpos($class, '@') === 0) {
+            $service = $this->container->get(substr($class, 1));
+            $callback = array($service, $method);
+
+            if (!is_callable($callback)) {
+                throw new \InvalidArgumentException(sprintf(
+                    'Method "%s" on service "%s" is not callable.',
+                    $method,
+                    substr($class, 1)
+                ));
+            }
+
+            return $callback;
+        }
+
+        throw new \InvalidArgumentException(sprintf(
+            'Unable to parse callback array for type "%s"',
+            $type
+        ));
     }
 }
